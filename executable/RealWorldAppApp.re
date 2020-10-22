@@ -2,7 +2,8 @@ open ReWeb;
 
 let apiServer =
   fun
-  | (meth, ["users", ...path]) => Lib.User.Server.server @@ (meth, path)
+  | (meth, ["users", ...path])
+  | (meth, ["user", ...path]) => Lib.User.Server.server @@ (meth, path)
 
   | (_, path) => (
       _ =>

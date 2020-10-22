@@ -136,7 +136,10 @@ let index =
         let user_model = User__Model.make_from_token(user, token);
         switch (user_model) {
         | Ok(user) =>
-          Response.of_json(~status=`OK, user |> User__Model.to_yojson)
+          Response.of_json(
+            ~status=`OK,
+            [%yojson {user: [%y user |> User__Model.to_yojson]}],
+          )
           |> Lwt.return
         | Error(e) =>
           prerr_endline(e);
