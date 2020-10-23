@@ -20,3 +20,4 @@ type create_entity = {
   username: string,
   password: string,
 };
+

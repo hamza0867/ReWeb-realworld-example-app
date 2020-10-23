@@ -1,4 +1,5 @@
 module R = ReWeb.Request;
+open ReWeb;
 
 [@deriving to_yojson]
 type errorsBody = {body: list(string)};
@@ -55,6 +56,56 @@ let unauthorized = `Unauthorized |> ReWeb.Response.of_status |> Lwt.return;
 let bearer_auth = (next, request) =>
   switch (get_auth(request)) {
   | Some(("Bearer", token))
-  | Some(("Token", token)) => request |> R.set_context(token) |> next
+  | Some(("Token", token)) =>
+    let (>>=) = Result.bind;
+    let jwt =
+      token |> Jose.Jwt.of_string >>= Jose.Jwt.validate(~jwk=AppConfig.jwk);
+    switch (jwt) {
+    | Ok(jwt) =>
+      request
+      |> R.set_context({
+           as _;
+           pub token = jwt;
+           pub prev = R.context(request)
+         })
+      |> next
+    | Error(`Expired) =>
+      Response.of_json(
+        ~status=`Unauthorized,
+        [%yojson {
+                   errors: {
+                     authentication: {
+                       expired: "expired token",
+                     },
+                   },
+                 }],
+      )
+      |> Lwt.return
+    | Error(`Invalid_signature) =>
+      Response.of_json(
+        ~status=`Unauthorized,
+        [%yojson {
+                   errors: {
+                     authentication: {
+                       invalid: "invalid token",
+                     },
+                   },
+                 }],
+      )
+      |> Lwt.return
+    | Error(`Msg(msg)) =>
+      prerr_endline(msg);
+      Response.of_json(
+        ~status=`Unauthorized,
+        [%yojson {
+                   errors: {
+                     authentication: {
+                       invalid: "invalid token",
+                     },
+                   },
+                 }],
+      )
+      |> Lwt.return;
+    };
   | _ => unauthorized
   };
