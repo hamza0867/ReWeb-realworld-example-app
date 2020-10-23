@@ -39,6 +39,7 @@ module MakeRepository = (Database: Database.Connection) => {
 
     Caqti_lwt.Pool.use(create_one_query(unregistered), pool) |> or_error;
   };
+
   let get_one_by_email = (~email) => {
     let get_one_query = [%rapper
       get_opt(
@@ -55,16 +56,25 @@ module MakeRepository = (Database: Database.Connection) => {
     ];
     Caqti_lwt.Pool.use(get_one_query(~email), pool) |> or_error;
   };
-  /*let update_one = (id, unregistered) => {*/
-  /*let update_one_query = [%rapper*/
-  /*execute(*/
-  /*{sql| UPDATE todos SET (title, completed) = (%string{title}, %bool{completed}) WHERE id = %int{id}  |sql},*/
-  /*)*/
-  /*];*/
-  /*let {title, completed}: Unregistered.t = unregistered;*/
-  /*Caqti_lwt.Pool.use(update_one_query(~id, ~title, ~completed), pool)*/
-  /*|> or_error;*/
-  /*};*/
+  let update_one = (unregistered: User__Entity.t) => {
+    print_endline(
+      "\n" ++ (unregistered.image |> Option.value(~default="null")),
+    );
+    let update_one_query = [%rapper
+      execute(
+        {sql|
+        UPDATE users
+        SET email = %string{email},
+        username = %string{username},
+        bio = %string{bio},
+        password = %string{password},
+        image = %string?{image}
+        WHERE id = %int{id}  |sql},
+        record_in,
+      )
+    ];
+    Caqti_lwt.Pool.use(update_one_query(unregistered), pool) |> or_error;
+  };
 };
 
 module Repository = MakeRepository(Database.Connection);

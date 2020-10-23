@@ -125,63 +125,20 @@ let index =
   Filters.bearer_auth @@
   (
     req => {
-      let context = Request.context(req);
-      let token = context;
-      let (>>=) = Result.bind;
-      let jwt =
-        token |> Jose.Jwt.of_string >>= Jose.Jwt.validate(~jwk=AppConfig.jwk);
-      switch (jwt) {
-      | Ok(jwt) =>
-        let user = jwt.payload;
-        let user_model = User__Model.make_from_token(user, token);
-        switch (user_model) {
-        | Ok(user) =>
-          Response.of_json(
-            ~status=`OK,
-            [%yojson {user: [%y user |> User__Model.to_yojson]}],
-          )
-          |> Lwt.return
-        | Error(e) =>
-          prerr_endline(e);
-          Response.of_status(`Internal_server_error) |> Lwt.return;
-        };
-      | Error(`Expired) =>
+      let jwt = Request.context(req)#token;
+      let user = jwt.payload;
+      let user_model =
+        User__Model.make_from_token(user, jwt |> Jose.Jwt.to_string);
+      switch (user_model) {
+      | Ok(user) =>
         Response.of_json(
-          ~status=`Unauthorized,
-          [%yojson {
-                     errors: {
-                       authentication: {
-                         expired: "expired token",
-                       },
-                     },
-                   }],
+          ~status=`OK,
+          [%yojson {user: [%y user |> User__Model.to_yojson]}],
         )
         |> Lwt.return
-      | Error(`Invalid_signature) =>
-        Response.of_json(
-          ~status=`Unauthorized,
-          [%yojson {
-                     errors: {
-                       authentication: {
-                         invalid: "invalid token",
-                       },
-                     },
-                   }],
-        )
-        |> Lwt.return
-      | Error(`Msg(msg)) =>
-        prerr_endline(msg);
-        Response.of_json(
-          ~status=`Unauthorized,
-          [%yojson {
-                     errors: {
-                       authentication: {
-                         invalid: "invalid token",
-                       },
-                     },
-                   }],
-        )
-        |> Lwt.return;
+      | Error(e) =>
+        prerr_endline(e);
+        Response.of_status(`Internal_server_error) |> Lwt.return;
       };
     }
   );
