@@ -18,3 +18,16 @@ let bearer_auth:
     },
     [> ReWeb.Response.http],
   );
+
+let bearer_auth_optional:
+  ReWeb.Filter.t(
+    'ctx,
+    {
+      .
+      token: option(Jose.Jwt.t),
+      prev: 'ctx,
+    },
+    [> ReWeb.Response.http],
+  );
+
+let unauthorized: Lwt.t([> ReWeb.Response.http]);

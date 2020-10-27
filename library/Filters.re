@@ -109,3 +109,63 @@ let bearer_auth = (next, request) =>
     };
   | _ => unauthorized
   };
+
+let bearer_auth_optional = (next, request) =>
+  switch (get_auth(request)) {
+  | Some(("Bearer", token))
+  | Some(("Token", token)) =>
+    let (>>=) = Result.bind;
+    let jwt =
+      token |> Jose.Jwt.of_string >>= Jose.Jwt.validate(~jwk=AppConfig.jwk);
+    switch (jwt) {
+    | Ok(jwt) =>
+      request
+      |> R.set_context({
+           as _;
+           pub token = Some(jwt);
+           pub prev = R.context(request)
+         })
+      |> next
+    | Error(`Expired) =>
+      Response.of_json(
+        ~status=`Unauthorized,
+        [%yojson {
+                   errors: {
+                     authentication: {
+                       expired: "expired token",
+                     },
+                   },
+                 }],
+      )
+      |> Lwt.return
+    | Error(`Invalid_signature) =>
+      Response.of_json(
+        ~status=`Unauthorized,
+        [%yojson {
+                   errors: {
+                     authentication: {
+                       invalid: "invalid token",
+                     },
+                   },
+                 }],
+      )
+      |> Lwt.return
+    | Error(`Msg(msg)) =>
+      prerr_endline(msg);
+      Response.of_json(
+        ~status=`Unauthorized,
+        [%yojson {
+                   errors: {
+                     authentication: {
+                       invalid: "invalid token",
+                     },
+                   },
+                 }],
+      )
+      |> Lwt.return;
+    };
+  | _ =>
+    request
+    |> R.set_context({as _; pub token = None; pub prev = R.context(request)})
+    |> next
+  };

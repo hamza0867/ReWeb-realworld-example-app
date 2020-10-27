@@ -4,6 +4,14 @@ let apiServer =
   fun
   | (meth, ["users", ...path])
   | (meth, ["user", ...path]) => Lib.User.Server.server @@ (meth, path)
+  | (`GET, ["profiles", username]) =>
+    Lib.Profile.Server.server(username, Get)
+
+  | (`POST, ["profiles", username, "follow"]) =>
+    Lib.Profile.Server.server(username, Follow)
+
+  | (`DELETE, ["profiles", username, "follow"]) =>
+    Lib.Profile.Server.server(username, Unfollow)
 
   | (_, path) => (
       _ =>
