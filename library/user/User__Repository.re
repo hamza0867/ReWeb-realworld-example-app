@@ -17,7 +17,7 @@ module MakeRepository = (Database: Database.Connection) => {
       CREATE TABLE IF NOT EXISTS users (
         id serial PRIMARY KEY,
         email VARCHAR(128) UNIQUE NOT NULL,
-        username VARCHAR(128) NOT NULL,
+        username VARCHAR(128) UNIQUE NOT NULL,
         bio VARCHAR,
         password VARCHAR,
         image VARCHAR
