@@ -114,9 +114,59 @@ let server = username =>
                 )
               };
             };
-          /*Response.of_status(`OK) |> Lwt.return;*/
           };
         };
       }
     )
-  | Unfollow => (_req => Response.of_status(`OK) |> Lwt.return);
+  | Unfollow =>
+    Filters.bearer_auth @@
+    (
+      req => {
+        let jwt = (req |> Request.context)#token;
+        let follower_username =
+          jwt.payload
+          |> Yojson.Safe.Util.member("username")
+          |> Yojson.Safe.Util.to_string_option;
+        switch (follower_username) {
+        | None => Filters.unauthorized
+        | Some(follower_username) =>
+          let%lwt result_follower_id =
+            Profile__Repository.Repository.find_user_id_by_username(
+              ~username=follower_username,
+            );
+          switch (result_follower_id) {
+          | Error(Database.Connection.Database_error(e)) =>
+            prerr_endline("\n" ++ e);
+            Response.of_status(`Internal_server_error) |> Lwt.return;
+          | Ok(None) => Filters.unauthorized
+          | Ok(Some(follower_id)) =>
+            let%lwt followed_id =
+              Profile__Repository.Repository.find_user_id_by_username(
+                ~username,
+              );
+            switch (followed_id) {
+            | Error(Database.Connection.Database_error(e)) =>
+              prerr_endline("\n" ++ e);
+              Response.of_status(`Internal_server_error) |> Lwt.return;
+            | Ok(None) => Response.of_status(`Not_found) |> Lwt.return
+            | Ok(Some(followed_id)) =>
+              let%lwt follow =
+                Profile__Repository.Repository.unfollow_one(
+                  ~follower_id,
+                  ~followed_id,
+                );
+              switch (follow) {
+              | Error(Database.Connection.Database_error(e)) =>
+                prerr_endline("\n" ++ e);
+                Response.of_status(`Internal_server_error) |> Lwt.return;
+              | Ok () =>
+                return_by_follower_username(
+                  ~follower_username=Some(follower_username),
+                  ~followed_username=username,
+                )
+              };
+            };
+          };
+        };
+      }
+    );
