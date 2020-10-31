@@ -115,6 +115,18 @@ module MakeRepository = (Database: Database.Connection) => {
     Caqti_lwt.Pool.use(follow_one_query(~follower_id, ~followed_id), pool)
     |> or_error;
   };
+
+  let unfollow_one = (~follower_id, ~followed_id) => {
+    let unfollow_one_query = [%rapper
+      execute(
+        {sql|
+        UPDATE follows SET active = 'f' WHERE follower_id = %int{follower_id} AND followed_id = %int{followed_id}
+        |sql},
+      )
+    ];
+    Caqti_lwt.Pool.use(unfollow_one_query(~follower_id, ~followed_id), pool)
+    |> or_error;
+  };
 };
 
 module Repository = MakeRepository(Database.Connection);
