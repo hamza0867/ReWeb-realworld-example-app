@@ -1,5 +1,7 @@
 open ReWeb;
 
+let _ = Lib.Schema.create_schema();
+
 let apiServer =
   fun
   | (meth, ["users", ...path])

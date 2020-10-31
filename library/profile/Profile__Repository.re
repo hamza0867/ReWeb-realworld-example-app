@@ -2,28 +2,6 @@ module MakeRepository = (Database: Database.Connection) => {
   open Profile__Entity;
   open Database;
 
-  let or_error = m => {
-    switch%lwt (m) {
-    | Ok(a) => Ok(a) |> Lwt.return
-    | Error(e) => Error(Database_error(Caqti_error.show(e))) |> Lwt.return
-    };
-  };
-
-  let pool = Database.pool;
-
-  let create_table = [%rapper
-    execute(
-      {sql|
-      CREATE TABLE IF NOT EXISTS follows (
-        follower_id integer references users (id),
-        followed_id integer references users (id)
-      );
-      |sql},
-    )
-  ];
-
-  Caqti_lwt.Pool.use(create_table(), pool);
-
   /*let create_one = (unregistered: create_entity) => {*/
   /*let create_one_query = [%rapper*/
   /*execute(*/
@@ -73,8 +51,7 @@ module MakeRepository = (Database: Database.Connection) => {
                 [%rapper
                   get_opt(
                     {sql| SELECT
-              @int{followed_id},
-              @int{follower_id}
+              @bool{active}
               FROM follows
               WHERE follower_id = (SELECT id from users WHERE username=%string{follower_username})
               AND followed_id = %int{followed_id}
@@ -82,8 +59,8 @@ module MakeRepository = (Database: Database.Connection) => {
                     function_out,
                   )
                 ](
-                  (~follower_id, ~followed_id) =>
-                  true
+                  (~active) =>
+                  active
                 );
               let%lwt following_opt =
                 Caqti_lwt.Pool.use(
@@ -112,25 +89,32 @@ module MakeRepository = (Database: Database.Connection) => {
         }
     );
   };
-  /*let update_one = (unregistered: User__Entity.t) => {*/
-  /*print_endline(*/
-  /*"\n" ++ (unregistered.image |> Option.value(~default="null")),*/
-  /*);*/
-  /*let update_one_query = [%rapper*/
-  /*execute(*/
-  /*{sql|*/
-    /*UPDATE users*/
-    /*SET email = %string{email},*/
-    /*username = %string{username},*/
-    /*bio = %string{bio},*/
-    /*password = %string{password},*/
-    /*image = %string?{image}*/
-    /*WHERE id = %int{id}  |sql},*/
-  /*record_in,*/
-  /*)*/
-  /*];*/
-  /*Caqti_lwt.Pool.use(update_one_query(unregistered), pool) |> or_error;*/
-  /*};*/
+
+  let find_user_id_by_username = (~username) => {
+    let find_follower_id_query = [%rapper
+      get_opt(
+        {sql|
+      SELECT @int{id }FROM users WHERE username = %string{username}
+      |sql},
+      )
+    ];
+    Caqti_lwt.Pool.use(find_follower_id_query(~username), pool) |> or_error;
+  };
+
+  let follow_one = (~follower_id, ~followed_id) => {
+    let follow_one_query = [%rapper
+      execute(
+        {sql|
+        INSERT INTO follows ( follower_id, followed_id, active )
+          VALUES (%int{follower_id}, %int{followed_id}, 't')
+          ON CONFLICT ON CONSTRAINT pkey DO
+        UPDATE SET active = 't'
+        |sql},
+      )
+    ];
+    Caqti_lwt.Pool.use(follow_one_query(~follower_id, ~followed_id), pool)
+    |> or_error;
+  };
 };
 
 module Repository = MakeRepository(Database.Connection);

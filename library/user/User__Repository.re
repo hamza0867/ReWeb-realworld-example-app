@@ -11,23 +11,6 @@ module MakeRepository = (Database: Database.Connection) => {
 
   let pool = Database.pool;
 
-  let create_table = [%rapper
-    execute(
-      {sql|
-      CREATE TABLE IF NOT EXISTS users (
-        id serial PRIMARY KEY,
-        email VARCHAR(128) UNIQUE NOT NULL,
-        username VARCHAR(128) UNIQUE NOT NULL,
-        bio VARCHAR,
-        password VARCHAR,
-        image VARCHAR
-      );
-      |sql},
-    )
-  ];
-
-  Caqti_lwt.Pool.use(create_table(), pool);
-
   let create_one = (unregistered: create_entity) => {
     let create_one_query = [%rapper
       execute(

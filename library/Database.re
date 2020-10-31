@@ -3,6 +3,9 @@ module type Connection = {
 
   type error =
     | Database_error(string);
+
+  let or_error:
+    Lwt_result.t('a, [< Caqti_error.t]) => Lwt_result.t('a, error);
 };
 
 module Connection = {
@@ -21,4 +24,11 @@ module Connection = {
 
   type error =
     | Database_error(string);
+
+  let or_error = m => {
+    switch%lwt (m) {
+    | Ok(a) => Ok(a) |> Lwt.return
+    | Error(e) => Error(Database_error(Caqti_error.show(e))) |> Lwt.return
+    };
+  };
 };
