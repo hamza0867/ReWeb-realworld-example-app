@@ -8,17 +8,11 @@
     "buildEnv": {
       "LD_LIBRARY_PATH": "$LIBFFI_BUILD_DIR/lib:$LD_LIBRARY_PATH"
     },
-    "release": {
-      "releasedBinaries": [
-        "RealWorldAppApp.exe"
-      ]
-    }
+    "release": { "releasedBinaries": [ "RealWorldAppApp.exe" ] }
   },
   "buildDirs": {
     "test": {
-      "require": [
-        "real-world-app.lib"
-      ],
+      "require": [ "real-world-app.lib" ],
       "main": "TestRealWorldApp",
       "name": "TestRealWorldApp.exe"
     },
@@ -27,31 +21,18 @@
       "namespace": "Lib",
       "includeSubdirs": "unqualified",
       "require": [
-        "lwt",
-        "caqti",
-        "caqti-lwt",
-        "caqti-driver-postgresql",
-        "re-web",
-        "ppx_rapper.runtime",
-        "decoders-yojson",
-        "safepass",
-        "jose"
+        "lwt", "caqti", "caqti-lwt", "caqti-driver-postgresql", "re-web",
+        "ppx_rapper.runtime", "decoders-yojson", "safepass", "jose",
+        "calendar", "base"
       ],
       "preprocess": [
-        "pps",
-        "ppx_deriving_yojson",
-        "lwt_ppx",
-        "ppx_deriving.make",
-        "ppx_deriving.show",
-        "ppx_rapper",
-        "ppx_yojson"
-      ]
+        "pps", "ppx_deriving_yojson", "lwt_ppx", "ppx_deriving.make",
+        "ppx_deriving.show", "ppx_rapper", "ppx_yojson"
+      ],
+      "flags": [ "-open Base" ]
     },
     "executable": {
-      "require": [
-        "real-world-app.lib",
-        "re-web"
-      ],
+      "require": [ "real-world-app.lib", "re-web" ],
       "main": "RealWorldAppApp",
       "name": "RealWorldAppApp.exe"
     }
@@ -63,6 +44,8 @@
   },
   "dependencies": {
     "@esy-ocaml/reason": "*",
+    "@opam/base": "v0.14.0",
+    "@opam/calendar": "2.04",
     "@opam/caqti": "1.2.3",
     "@opam/caqti-driver-postgresql": "1.2.4",
     "@opam/caqti-lwt": "1.2.0",
@@ -82,15 +65,14 @@
     "ocaml": "4.10.1002"
   },
   "devDependencies": {
-    "@opam/ocaml-lsp-server": "ocaml/ocaml-lsp:ocaml-lsp-server.opam",
+    "@opam/merlin": "*",
+    "@opam/ocaml-lsp-server": "1.1.0",
     "ocaml": "4.10.1002",
-    "refmterr": "*",
     "pesy": "*",
-    "@opam/merlin": "*"
+    "refmterr": "*"
   },
   "resolutions": {
     "@opam/ctypes-foreign": "esy-ocaml/libffi#c61127d",
     "@reason-native-web/piaf": "1.3.0"
   }
 }
-

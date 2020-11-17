@@ -69,7 +69,7 @@ module MakeRepository = (Database: Database.Connection) => {
                 )
                 |> or_error;
               following_opt
-              |> Result.map(Option.value(~default=false))
+              |> Result.map(~f=Option.value(~default=false))
               |> Lwt.return;
             };
             following
@@ -107,8 +107,23 @@ module MakeRepository = (Database: Database.Connection) => {
         {sql|
         INSERT INTO follows ( follower_id, followed_id, active )
           VALUES (%int{follower_id}, %int{followed_id}, 't')
-          ON CONFLICT ON CONSTRAINT pkey DO
+          ON CONFLICT ON CONSTRAINT follows_pkey DO
         UPDATE SET active = 't'
+        |sql},
+      )
+    ];
+    Caqti_lwt.Pool.use(follow_one_query(~follower_id, ~followed_id), pool)
+    |> or_error;
+  };
+
+  let unfollow_one = (~follower_id, ~followed_id) => {
+    let follow_one_query = [%rapper
+      execute(
+        {sql|
+        INSERT INTO follows ( follower_id, followed_id, active )
+          VALUES (%int{follower_id}, %int{followed_id}, 'f')
+          ON CONFLICT ON CONSTRAINT follows_pkey DO
+        UPDATE SET active = 'f'
         |sql},
       )
     ];
