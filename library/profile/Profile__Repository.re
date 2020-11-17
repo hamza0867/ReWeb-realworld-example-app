@@ -117,7 +117,7 @@ module MakeRepository = (Database: Database.Connection) => {
   };
 
   let unfollow_one = (~follower_id, ~followed_id) => {
-    let follow_one_query = [%rapper
+    let unfollow_one_query = [%rapper
       execute(
         {sql|
         INSERT INTO follows ( follower_id, followed_id, active )
@@ -127,7 +127,8 @@ module MakeRepository = (Database: Database.Connection) => {
         |sql},
       )
     ];
-    Caqti_lwt.Pool.use(follow_one_query(~follower_id, ~followed_id), pool)
+    Caqti_lwt.Pool.use(unfollow_one_query(~follower_id, ~followed_id), pool)
+
     |> or_error;
   };
 };
