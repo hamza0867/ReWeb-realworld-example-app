@@ -1,4 +1,6 @@
 module type Connection = {
+  let connection: Lwt.t(Caqti_lwt.connection);
+
   let pool: Caqti_lwt.Pool.t(Caqti_lwt.connection, [> Caqti_error.connect]);
 
   type error =
@@ -10,8 +12,15 @@ module type Connection = {
 
 module Connection = {
   let connection_url =
-    try(Sys.getenv("CONN_STRING")) {
-    | Not_found => failwith("CONN_STRING env variable not found")
+    switch (Sys.getenv("CONN_STRING")) {
+    | None => failwith("CONN_STRING env variable not found")
+    | Some(str) => str
+    };
+
+  let connection =
+    switch%lwt (Caqti_lwt.connect(Uri.of_string(connection_url))) {
+    | Ok(connection) => connection |> Lwt.return
+    | Error(err) => failwith(Caqti_error.show(err))
     };
 
   let pool =

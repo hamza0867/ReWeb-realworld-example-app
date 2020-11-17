@@ -7,7 +7,8 @@
    (name Lib)
    ; Other libraries list this name in their package.json 'require' field to use this library.
    (public_name real-world-app.lib)
-   (libraries  lwt caqti caqti-lwt caqti-driver-postgresql re-web ppx_rapper.runtime decoders-yojson safepass jose )
+   (libraries  lwt caqti caqti-lwt caqti-driver-postgresql re-web ppx_rapper.runtime decoders-yojson safepass jose calendar base )
+   (flags ( -open Base ))  ; From package.json flags field
    (preprocess ( pps ppx_deriving_yojson lwt_ppx ppx_deriving.make ppx_deriving.show ppx_rapper ppx_yojson ))  ; From package.json preprocess field
 )
 (include_subdirs unqualified)  ; From package.json includeSubdirs field
