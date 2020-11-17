@@ -92,7 +92,7 @@ module Login = {
                 );
               switch (user) {
               | Error(err) =>
-                print_endline(err);
+                prerr_endline(err);
                 Response.of_status(`Internal_server_error) |> Lwt.return;
               | Ok(user) =>
                 Response.of_json(
@@ -194,7 +194,7 @@ module Update = {
               id: user.id,
               email:
                 payload.email
-                |> Option.map(Validations.Email.toString)
+                |> Option.map(~f=Validations.Email.toString)
                 <||> user.email,
               username: payload.username <||> user.username,
               bio: payload.bio <||> user.bio,
@@ -202,12 +202,12 @@ module Update = {
                 switch (payload.image) {
                 | None => user.image
                 | Some(url_opt) =>
-                  url_opt |> Option.map(Validations.Url.toString)
+                  url_opt |> Option.map(~f=Validations.Url.toString)
                 },
 
               password:
                 payload.password
-                |> Option.map(Bcrypt.hash >> Bcrypt.string_of_hash)
+                |> Option.map(~f=Bcrypt.hash >> Bcrypt.string_of_hash)
                 <||> user.password,
             };
             let (>>=) = Lwt.(>>=);
@@ -252,7 +252,7 @@ module Update = {
                           bio: [%y `String(updated_user.bio)],
                           image: [%y
                             updated_user.image
-                            |> Option.map(x => `String(x))
+                            |> Option.map(~f=x => `String(x))
                             <||> `Null
                           ],
                           token: [%y `String(token)],

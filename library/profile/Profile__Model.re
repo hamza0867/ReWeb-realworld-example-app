@@ -7,12 +7,11 @@ type t = {
 };
 
 let make_from_entity =
-    (~username, ~bio, ~image, ~following): result(t, string) => {
-  let image = image |> Option.map(Validations.Url.fromString);
+    (~username, ~bio, ~image, ~following): Result.t(t, string) => {
+  let image = image |> Option.map(~f=Validations.Url.fromString);
   switch (image) {
   | Some(None) => Error("Invalid image url")
   | Some(image) => Ok({username, bio, image, following})
   | None => Ok({username, bio, image: None, following})
   };
 };
-
