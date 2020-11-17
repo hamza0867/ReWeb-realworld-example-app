@@ -128,7 +128,6 @@ module MakeRepository = (Database: Database.Connection) => {
       )
     ];
     Caqti_lwt.Pool.use(unfollow_one_query(~follower_id, ~followed_id), pool)
-
     |> or_error;
   };
 };
