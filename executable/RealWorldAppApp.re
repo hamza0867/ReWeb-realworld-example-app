@@ -1,6 +1,16 @@
 open ReWeb;
 
-let _ = Lib.Schema.create_schema();
+let _ = {
+  let (>>=) = Lwt.(>>=);
+  Lib.Schema.create_schema()
+  >>= (
+    fun
+    | Ok () => print_endline("\n Schema created successfully") |> Lwt.return
+    | Error(Lib.Database.Connection.Database_error(e)) =>
+      prerr_endline("\n Error happened while creating schema: " ++ e)
+      |> Lwt.return
+  );
+};
 
 let apiServer =
   fun
@@ -14,6 +24,9 @@ let apiServer =
 
   | (`DELETE, ["profiles", username, "follow"]) =>
     Lib.Profile.Server.server(username, Unfollow)
+
+  | (meth, ["articles", ...path]) =>
+    Lib.Article.Server.server @@ (meth, path)
 
   | (_, path) => (
       _ =>

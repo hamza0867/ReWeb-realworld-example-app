@@ -45,7 +45,7 @@ let get_auth = request => {
     | Some(x) => f(x)
     };
   let* value = R.header("Authorization", request);
-  switch (String.split_on_char(' ', value)) {
+  switch (String.split(~on=' ', value)) {
   | [typ, credentials] => Some((typ, credentials))
   | _ => None
   };
