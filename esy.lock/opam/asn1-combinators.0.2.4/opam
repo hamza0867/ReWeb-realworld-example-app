@@ -28,12 +28,12 @@ random testing.
 
 The only ASN.1 encodings currently supported are BER and DER.
 """
-x-commit-hash: "c32e3df61cac98a8276b54e19d28beb460a1631e"
+x-commit-hash: "5ad18c05b9ee693296a882ebef10e3fba3021591"
 url {
   src:
-    "https://github.com/mirleft/ocaml-asn1-combinators/releases/download/v0.2.3/asn1-combinators-v0.2.3.tbz"
+    "https://github.com/mirleft/ocaml-asn1-combinators/releases/download/v0.2.4/asn1-combinators-v0.2.4.tbz"
   checksum: [
-    "sha256=d9b4e3917e8f7c3a51ad2220053772c7c4ac1d490ff0ee1689a216770283e3fc"
-    "sha512=ea7ecf8e86f5364ed44399a22d08f155db4ad57b2d691f1604091ff3720ddbe65dae63912dbf4e73b2d1ca5e7933661c79e8ea919bf78f458cd576acf01e0f8b"
+    "sha256=39c5812538d915c4ef125f716a147cf00070740994f9b442e9e77188392f3627"
+    "sha512=49d066790794bf9adbed76d61257fdebc31a62bcb9cafc815b59df21b10b6e1805eb2ae12edff3ea63f5bd944da666545d9aa943fd284901f25693a826a1fd15"
   ]
 }

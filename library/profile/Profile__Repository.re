@@ -69,7 +69,7 @@ module MakeRepository = (Database: Database.Connection) => {
                 )
                 |> or_error;
               following_opt
-              |> Result.map(Option.value(~default=false))
+              |> Result.map(~f=Option.value(~default=false))
               |> Lwt.return;
             };
             following
@@ -107,7 +107,7 @@ module MakeRepository = (Database: Database.Connection) => {
         {sql|
         INSERT INTO follows ( follower_id, followed_id, active )
           VALUES (%int{follower_id}, %int{followed_id}, 't')
-          ON CONFLICT ON CONSTRAINT pkey DO
+          ON CONFLICT ON CONSTRAINT follows_pkey DO
         UPDATE SET active = 't'
         |sql},
       )
@@ -120,7 +120,10 @@ module MakeRepository = (Database: Database.Connection) => {
     let unfollow_one_query = [%rapper
       execute(
         {sql|
-        UPDATE follows SET active = 'f' WHERE follower_id = %int{follower_id} AND followed_id = %int{followed_id}
+        INSERT INTO follows ( follower_id, followed_id, active )
+          VALUES (%int{follower_id}, %int{followed_id}, 'f')
+          ON CONFLICT ON CONSTRAINT follows_pkey DO
+        UPDATE SET active = 'f'
         |sql},
       )
     ];

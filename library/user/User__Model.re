@@ -10,7 +10,7 @@ type t = {
 let make_from_entity =
     (~email, ~token, ~username, ~bio, ~image): result(t, string) => {
   let email = email |> Validations.Email.fromString;
-  let image = image |> Option.map(Validations.Url.fromString);
+  let image = image |> Option.map(~f=Validations.Url.fromString);
   switch (email, image) {
   | (None, _) => Error("Invalid email")
   | (_, Some(None)) => Error("Invalid image url")

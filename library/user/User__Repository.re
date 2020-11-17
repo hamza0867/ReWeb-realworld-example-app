@@ -23,6 +23,17 @@ module MakeRepository = (Database: Database.Connection) => {
     Caqti_lwt.Pool.use(create_one_query(unregistered), pool) |> or_error;
   };
 
+  let get_user_id_by_email = (~email) => {
+    let get_one_query = [%rapper
+      get_opt(
+        {sql| SELECT
+          @int{id}
+          FROM users WHERE email = %string{email}|sql},
+      )
+    ];
+    Caqti_lwt.Pool.use(get_one_query(~email), pool) |> or_error;
+  };
+
   let get_one_by_email = (~email) => {
     let get_one_query = [%rapper
       get_opt(
