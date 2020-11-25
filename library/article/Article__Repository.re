@@ -155,7 +155,7 @@ module MakeRepository = (Database: Database.Connection) => {
       let find_follower_id_query = [%rapper
         get_opt(
           {sql|
-      SELECT @string{username}FROM users WHERE user_id = %int{user_id}
+      SELECT @string{username} FROM users WHERE id = %int{user_id}
       |sql},
         )
       ];

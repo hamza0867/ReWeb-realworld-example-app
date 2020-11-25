@@ -111,7 +111,75 @@ module Create = {
 };
 
 module Show = {
-  let show = (slug, req) => {};
+  let show = slug =>
+    Filters.bearer_auth_optional @@
+    (
+      req => {
+        let jwt_opt = Request.context(req)#token;
+        switch (jwt_opt) {
+        | Some(jwt) =>
+          let username_opt =
+            jwt.payload |> Yojson.Safe.Util.member("username");
+          switch (username_opt) {
+          | `String(username) =>
+            let%lwt user_id_opt_result =
+              Profile.Repository.find_user_id_by_username(~username);
+            switch (user_id_opt_result) {
+            | Error(Database.Connection.Database_error(e)) =>
+              prerr_endline("\n" ++ e);
+              Response.of_status(`Internal_server_error) |> Lwt.return;
+            | Ok(user_id_opt) =>
+              switch (user_id_opt) {
+              | None => Filters.unauthorized
+              | Some(user_id) =>
+                let%lwt article_opt_result =
+                  Article__Repository.Repository.get_one_by_slug(
+                    ~slug,
+                    ~username=Some(username),
+                    ~user_id=Some(user_id),
+                  );
+                switch (article_opt_result) {
+                | Error(Database.Connection.Database_error(e)) =>
+                  prerr_endline("\n" ++ e);
+                  Response.of_status(`Internal_server_error) |> Lwt.return;
+                | Ok(article_opt) =>
+                  switch (article_opt) {
+                  | None => Response.of_status(`Not_found) |> Lwt.return
+                  | Some(article) =>
+                    [%yojson
+                      {article: [%y article |> Article__Model.to_yojson]}
+                    ]
+                    |> Response.of_json(~status=`OK)
+                    |> Lwt.return
+                  }
+                };
+              }
+            };
+          | _ => Filters.unauthorized
+          };
+        | None =>
+          let%lwt article_opt_result =
+            Article__Repository.Repository.get_one_by_slug(
+              ~slug,
+              ~username=None,
+              ~user_id=None,
+            );
+          switch (article_opt_result) {
+          | Error(Database.Connection.Database_error(e)) =>
+            prerr_endline("\n" ++ e);
+            Response.of_status(`Internal_server_error) |> Lwt.return;
+          | Ok(article_opt) =>
+            switch (article_opt) {
+            | None => Response.of_status(`Not_found) |> Lwt.return
+            | Some(article) =>
+              [%yojson {article: [%y article |> Article__Model.to_yojson]}]
+              |> Response.of_json(~status=`OK)
+              |> Lwt.return
+            }
+          };
+        };
+      }
+    );
 };
 
 module Index = {
@@ -133,4 +201,5 @@ module Index = {
   };
 };
 
-let resource = Server.resource(~create=Create.create, ~index=Index.index);
+let resource =
+  Server.resource(~create=Create.create, ~index=Index.index, ~show=Show.show);
