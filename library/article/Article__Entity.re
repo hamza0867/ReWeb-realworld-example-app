@@ -1,3 +1,14 @@
+type entity = {
+  id: int,
+  slug: string,
+  title: string,
+  description: string,
+  body: string,
+  created_at: string,
+  updated_at: string,
+  author_id: int,
+};
+
 type create_entity = {
   title: string,
   description: string,

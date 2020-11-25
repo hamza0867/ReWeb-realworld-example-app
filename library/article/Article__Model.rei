@@ -1,5 +1,7 @@
 let time_to_string: CalendarLib.Calendar.t => string;
 
+let time_of_string: string => CalendarLib.Calendar.t;
+
 [@deriving to_yojson]
 type t = {
   slug: string,
