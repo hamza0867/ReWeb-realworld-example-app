@@ -110,4 +110,27 @@ module Create = {
     );
 };
 
-let resource = Server.resource(~create=Create.create);
+module Show = {
+  let show = (slug, req) => {};
+};
+
+module Index = {
+  let index = req => {
+    let query =
+      Request.query(req)
+      |> String.split(~on='&')
+      |> List.fold(~init=[], ~f=(acc, str) =>
+           str
+           |> String.split(~on='=')
+           |> (
+             fun
+             | [fst, snd] => List.concat([acc, [(fst, snd)]])
+             | _ => acc
+           )
+         );
+
+    Response.of_status(`OK) |> Lwt.return;
+  };
+};
+
+let resource = Server.resource(~create=Create.create, ~index=Index.index);
