@@ -64,14 +64,7 @@ module MakeRepository = (Database: Database.Connection) => {
           call_db(
             create_one_query(
               ~title=unregistered.title,
-              ~slug=
-                unregistered.title
-                |> String.lowercase
-                |> String.Search_pattern.replace_all(
-                     ~in_=_,
-                     ~with_="-",
-                     String.Search_pattern.create(" "),
-                   ),
+              ~slug=unregistered.title |> Util.slugify,
               ~description=unregistered.description,
               ~body=unregistered.body,
               ~created_at=
@@ -440,25 +433,32 @@ module MakeRepository = (Database: Database.Connection) => {
       }
     );
   };
-  /*let update_one = (unregistered: Article__Entity.t) => {*/
-  /*print_endline(*/
-  /*"\n" ++ (unregistered.image |> Option.value(~default="null")),*/
-  /*);*/
-  /*let update_one_query = [%rapper*/
-  /*execute(*/
-  /*{sql|*/
-    /*UPDATE users*/
-    /*SET email = %string{email},*/
-    /*username = %string{username},*/
-    /*bio = %string{bio},*/
-    /*password = %string{password},*/
-    /*image = %string?{image}*/
-    /*WHERE id = %int{id}  |sql},*/
-  /*record_in,*/
-  /*)*/
-  /*];*/
-  /*Caqti_lwt.Pool.use(update_one_query(unregistered), pool) |> or_error;*/
-  /*};*/
+
+  let update_one =
+      (~original_slug, ~new_title, ~new_slug, ~new_description, ~new_body) => {
+    let update_one_query = [%rapper
+      execute(
+        {sql|
+    UPDATE articles
+    SET title = %string{new_title},
+    slug = %string{new_slug},
+    description = %string{new_description},
+    body = %string{new_body}
+    WHERE slug = %string{original_slug}  |sql},
+      )
+    ];
+    Caqti_lwt.Pool.use(
+      update_one_query(
+        ~new_title,
+        ~new_slug,
+        ~new_description,
+        ~new_body,
+        ~original_slug,
+      ),
+      pool,
+    )
+    |> or_error;
+  };
 };
 
 module Repository = MakeRepository(Database.Connection);
