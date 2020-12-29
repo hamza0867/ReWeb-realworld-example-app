@@ -196,8 +196,46 @@ module Index = {
              | _ => acc
            )
          );
+    let author_name = List.Assoc.find(query, ~equal=String.equal, "author");
+    let tag = List.Assoc.find(query, ~equal=String.equal, "tag");
+    let favorited_by_username =
+      List.Assoc.find(query, ~equal=String.equal, "favorited")
+      |> Option.value(~default="");
 
-    Response.of_status(`OK) |> Lwt.return;
+    let limit =
+      List.Assoc.find(query, ~equal=String.equal, "limit")
+      |> Option.bind(~f=Caml.int_of_string_opt)
+      |> Option.value(~default=20);
+
+    let offset =
+      List.Assoc.find(query, ~equal=String.equal, "offset")
+      |> Option.bind(~f=Caml.int_of_string_opt)
+      |> Option.value(~default=0);
+
+    let%lwt articles_result =
+      Article__Repository.Repository.get_many(
+        ~author_name,
+        ~tag,
+        ~favorited_by_username,
+        ~limit,
+        ~offset,
+      );
+
+    switch (articles_result) {
+    | Ok(articles) =>
+      let json = [%yojson
+        {
+          articles: [%y
+            `List(articles |> List.map(~f=Article__Model.to_yojson))
+          ],
+          articlesCount: [%y `Int(articles |> List.length)],
+        }
+      ];
+      json |> Response.of_json(~status=`OK) |> Lwt.return;
+    | Error(Database.Connection.Database_error(e)) =>
+      prerr_endline("\n" ++ e);
+      Response.of_status(`Internal_server_error) |> Lwt.return;
+    };
   };
 };
 

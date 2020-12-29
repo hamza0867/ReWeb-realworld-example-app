@@ -265,12 +265,22 @@ module MakeRepository = (Database: Database.Connection) => {
     );
   };
 
-  let get_many =
-      (~tag, ~author_name, ~favorited_by_username, ~limit=20, ~offset=0) => {
+  let get_many = (~tag, ~author_name, ~favorited_by_username, ~limit, ~offset) => {
     let (>>=) = Lwt_result.(>>=);
-    let all_articles_query = [%rapper
-      get_many(
-        {sql| SELECT
+    let articles_promise =
+      (
+        switch (tag) {
+        | Some(tag) =>
+          let get_article_ids_by_tag = [%rapper
+            get_many(
+              {sql|
+      SELECT @int{article_id} FROM article_tag WHERE tag = %string{tag}
+      |sql},
+            )
+          ];
+          let all_articles_by_ids_query = [%rapper
+            get_many(
+              {sql| SELECT
             @int{articles.id},
             @string{articles.slug},
             @string{articles.title},
@@ -286,13 +296,73 @@ module MakeRepository = (Database: Database.Connection) => {
             @bool{coalesce(follows.active, 'f') AS following}
             FROM articles
             LEFT JOIN user_favorites_article ON (user_favorites_article.article_id = articles.id AND user_favorites_article.user_id = (SELECT users.id FROM users WHERE users.username = %string{favorited_by_username}) )
-            JOIN users ON users.username = %string{author_name}
+            JOIN users ON users.id = articles.author_id AND users.username = coalesce(%string?{author_name}, users.username)
             LEFT JOIN follows ON (follows.followed_id = articles.author_id AND follows.follower_id = (SELECT users.id FROM users WHERE users.username = %string{favorited_by_username}))
+            WHERE articles.id IN (%list{%int{article_ids}})
+            GROUP BY articles.id, user_favorites_article.active, users.id, follows.active
             ORDER BY articles.created_at
             LIMIT %int{limit} OFFSET %int{offset}
               |sql},
+            )
+          ];
+          Caqti_lwt.Pool.use(get_article_ids_by_tag(~tag), Database.pool)
+          >>= (
+            article_ids => {
+              switch (article_ids) {
+              | [] => Lwt.return_ok([])
+              | [x, ...y] =>
+                Caqti_lwt.Pool.use(
+                  all_articles_by_ids_query(
+                    ~article_ids,
+                    ~author_name,
+                    ~favorited_by_username,
+                    ~limit,
+                    ~offset,
+                  ),
+                  Database.pool,
+                )
+              };
+            }
+          );
+        | None =>
+          let all_articles_query = [%rapper
+            get_many(
+              {sql| SELECT
+            @int{articles.id},
+            @string{articles.slug},
+            @string{articles.title},
+            @string{articles.description},
+            @string{articles.body},
+            @string{articles.created_at},
+            @string{articles.updated_at},
+            @bool{coalesce(user_favorites_article.active, 'f') AS favorited},
+            COUNT(user_favorites_article.active) @int{favoritesCount},
+            @string{users.username},
+            @string{users.bio},
+            @string?{users.image},
+            @bool{coalesce(follows.active, 'f') AS following}
+            FROM articles
+            LEFT JOIN user_favorites_article ON (user_favorites_article.article_id = articles.id AND user_favorites_article.user_id = (SELECT users.id FROM users WHERE users.username = %string{favorited_by_username}) )
+            JOIN users ON users.id = articles.author_id AND users.username = coalesce(%string?{author_name}, users.username)
+            LEFT JOIN follows ON (follows.followed_id = articles.author_id AND follows.follower_id = (SELECT users.id FROM users WHERE users.username = %string{favorited_by_username}))
+            GROUP BY articles.id, user_favorites_article.active, users.id, follows.active
+            ORDER BY articles.created_at
+            LIMIT %int{limit} OFFSET %int{offset}
+              |sql},
+            )
+          ];
+          Caqti_lwt.Pool.use(
+            all_articles_query(
+              ~limit,
+              ~offset,
+              ~author_name,
+              ~favorited_by_username,
+            ),
+            Database.pool,
+          );
+        }
       )
-    ];
+      |> or_error;
 
     let get_tag_list_by_article_id = [%rapper
       get_many(
@@ -303,20 +373,14 @@ module MakeRepository = (Database: Database.Connection) => {
       )
     ];
 
-    Caqti_lwt.Pool.use(
-      all_articles_query(
-        ~limit,
-        ~offset,
-        ~author_name,
-        ~favorited_by_username,
-      ),
-      Database.pool,
-    )
+    articles_promise
     >>= (
       articles => {
         articles
-        |> List.map(
+        |> List.fold(
+             ~init=Lwt.return_ok([]),
              ~f=(
+                  articles_list_result,
                   (
                     article_id,
                     slug,
@@ -333,45 +397,48 @@ module MakeRepository = (Database: Database.Connection) => {
                     author_following,
                   ),
                 ) => {
-             Caqti_lwt.Pool.use(
-               get_tag_list_by_article_id(~article_id),
-               Database.pool,
-             )
-             >>= (
-               tags => {
-                 let author_result =
-                   Profile.Model.make_from_entity(
-                     ~username=author_name,
-                     ~bio=author_bio,
-                     ~image=author_image,
-                     ~following=author_following,
-                   );
-                 switch (author_result) {
-                 /*| Error(e) => Error(`Custom(e)) |> Lwt.return*/
-                 | Ok(author) =>
-                   Ok(
-                     Article__Model.{
-                       slug,
-                       title,
-                       description,
-                       body,
-                       tagList: tags,
-                       createdAt: Article__Model.time_of_string(created_at),
-                       updatedAt: Article__Model.time_of_string(updated_at),
-                       favorited,
-                       favoritesCount,
-                       author,
-                     },
-                   )
-                   |> Lwt.return
-                 };
-               }
-             )
+             switch%lwt (articles_list_result) {
+             | Error(e) => articles_list_result
+             | Ok(articles_list) =>
+               Caqti_lwt.Pool.use(
+                 get_tag_list_by_article_id(~article_id),
+                 Database.pool,
+               )
+               >>= (
+                 tags => {
+                   let author_result =
+                     Profile.Model.make_from_entity(
+                       ~username=author_name,
+                       ~bio=author_bio,
+                       ~image=author_image,
+                       ~following=author_following,
+                     );
+                   switch (author_result) {
+                   | Ok(author) =>
+                     Ok([
+                       Article__Model.{
+                         slug,
+                         title,
+                         description,
+                         body,
+                         tagList: tags,
+                         createdAt: Article__Model.time_of_string(created_at),
+                         updatedAt: Article__Model.time_of_string(updated_at),
+                         favorited,
+                         favoritesCount,
+                         author,
+                       },
+                       ...articles_list,
+                     ])
+                     |> Lwt.return
+                   };
+                 }
+               )
+             }
            })
-        |> Lwt.all;
+        |> or_error;
       }
     );
-    ();
   };
   /*let update_one = (unregistered: Article__Entity.t) => {*/
   /*print_endline(*/

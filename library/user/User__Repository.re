@@ -51,9 +51,6 @@ module MakeRepository = (Database: Database.Connection) => {
     Caqti_lwt.Pool.use(get_one_query(~email), pool) |> or_error;
   };
   let update_one = (unregistered: User__Entity.t) => {
-    print_endline(
-      "\n" ++ (unregistered.image |> Option.value(~default="null")),
-    );
     let update_one_query = [%rapper
       execute(
         {sql|
