@@ -239,5 +239,149 @@ module Index = {
   };
 };
 
+module Update = {
+  [@deriving of_yojson]
+  type payload = {
+    [@default None]
+    title: option(string),
+    [@default None]
+    description: option(string),
+    [@default None]
+    body: option(string),
+  };
+  let update = (_meth, slug) =>
+    Filters.body_json @@
+    Filters.bearer_auth @@
+    (
+      req => {
+        let email =
+          Request.context(req)#token.payload
+          |> Yojson.Safe.Util.member("email");
+        switch (email) {
+        | `String(email) =>
+          let%lwt user_opt = User.Repository.get_one_by_email(~email);
+          switch (user_opt) {
+          | Error(Database.Connection.Database_error(e)) =>
+            prerr_endline("\n" ++ e);
+            Response.of_status(`Internal_server_error) |> Lwt.return;
+          | Ok(None) => Filters.unauthorized
+          | Ok(Some(user)) =>
+            let payload =
+              Request.context(req)#prev
+              |> Yojson.Safe.Util.member("article")
+              |> payload_of_yojson;
+            switch (payload) {
+            | Error(e) =>
+              prerr_endline("\n " ++ e);
+              Filters.makeErrorJson([e])
+              |> Filters.errorJson_to_yojson
+              |> Response.of_json(~status=`Code(422))
+              |> Lwt.return;
+            | Ok(payload) =>
+              let%lwt author =
+                Profile__Repository.Repository.get_one(
+                  ~follower_username=Some(user.username),
+                  ~followed_username=user.username,
+                );
+              switch (author) {
+              | Error(Database.Connection.Database_error(e)) =>
+                prerr_endline("\n" ++ e);
+                Response.of_status(`Internal_server_error) |> Lwt.return;
+              | Ok(None) => Filters.unauthorized
+              | Ok(Some(author)) =>
+                let author =
+                  Profile.Model.make_from_entity(
+                    ~username=author.username,
+                    ~bio=author.bio,
+                    ~image=author.image,
+                    ~following=author.following,
+                  );
+                switch (author) {
+                | Error(e) =>
+                  prerr_endline("\n" ++ e);
+                  Response.of_status(`Internal_server_error) |> Lwt.return;
+                | Ok(author) =>
+                  let (>>=) = Lwt.(>>=);
+                  Article__Repository.Repository.get_one_by_slug(
+                    ~slug,
+                    ~user_id=Some(user.id),
+                    ~username=Some(user.username),
+                  )
+                  >>= (
+                    fun
+                    | Ok(Some(article)) => {
+                        let new_title =
+                          payload.title
+                          |> Option.value(~default=article.title);
+                        let new_slug =
+                          payload.title
+                          |> Option.map(~f=Util.slugify)
+                          |> Option.value(~default=article.title);
+
+                        let new_description =
+                          payload.description
+                          |> Option.value(~default=article.description);
+
+                        let new_body =
+                          payload.body |> Option.value(~default=article.body);
+
+                        let return_object = {
+                          ...article,
+                          title: new_title,
+                          slug: new_slug,
+                          description: new_description,
+                          body: new_body,
+                        };
+
+                        Article__Repository.Repository.update_one(
+                          ~original_slug=article.slug,
+                          ~new_slug,
+                          ~new_title,
+                          ~new_body,
+                          ~new_description,
+                        )
+                        >>= (
+                          fun
+                          | Ok () => {
+                              [%yojson
+                                {
+                                  article: [%y
+                                    return_object |> Article__Model.to_yojson
+                                  ],
+                                }
+                              ]
+                              |> Response.of_json(~status=`OK)
+                              |> Lwt.return;
+                            }
+                          | Error(Database.Connection.Database_error(e)) => {
+                              prerr_endline("\n" ++ e);
+                              Response.of_status(`Internal_server_error)
+                              |> Lwt.return;
+                            }
+                        );
+                      }
+                    | Ok(None) =>
+                      Response.of_status(`Not_found) |> Lwt.return
+                    | Error(Database.Connection.Database_error(e)) => {
+                        prerr_endline("\n" ++ e);
+                        Response.of_status(`Internal_server_error)
+                        |> Lwt.return;
+                      }
+                  );
+                };
+              };
+            };
+          };
+        | _ => Response.of_status(`Unauthorized) |> Lwt.return
+        };
+      }
+    );
+};
+
 let resource =
-  Server.resource(~create=Create.create, ~index=Index.index, ~show=Show.show);
+  Server.resource(
+    ~create=Create.create,
+    ~index=Index.index,
+    ~show=Show.show,
+    ~update=Update.update,
+  );
