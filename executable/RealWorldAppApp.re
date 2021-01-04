@@ -28,6 +28,8 @@ let apiServer =
   | (meth, ["articles", ...path]) =>
     Lib.Article.Server.server @@ (meth, path)
 
+  | (`GET, ["tags"]) => Lib.Tag.Server.server
+
   | (_, path) => (
       _ =>
         Response.of_text(
