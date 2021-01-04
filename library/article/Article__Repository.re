@@ -459,6 +459,17 @@ module MakeRepository = (Database: Database.Connection) => {
     )
     |> or_error;
   };
+
+  let delete_one_by_slug = (~slug) => {
+    let delete_query = [%rapper
+      execute(
+        {sql|
+        DELETE FROM articles WHERE slug = %string{slug}
+       |sql},
+      )
+    ];
+    Caqti_lwt.Pool.use(delete_query(~slug), pool) |> or_error;
+  };
 };
 
 module Repository = MakeRepository(Database.Connection);

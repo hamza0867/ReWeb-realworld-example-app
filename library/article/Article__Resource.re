@@ -378,10 +378,32 @@ module Update = {
     );
 };
 
+module Destroy = {
+  let destroy = slug => {
+    Filters.bearer_auth @@
+    (
+      _req => {
+        let (>>=) = Lwt.(>>=);
+        Article__Repository.Repository.delete_one_by_slug(~slug)
+        >>= (
+          fun
+          | Ok () => Response.of_status(`OK) |> Lwt.return
+
+          | Error(Database.Connection.Database_error(e)) => {
+              prerr_endline("\n" ++ e);
+              Response.of_status(`Internal_server_error) |> Lwt.return;
+            }
+        );
+      }
+    );
+  };
+};
+
 let resource =
   Server.resource(
     ~create=Create.create,
     ~index=Index.index,
     ~show=Show.show,
     ~update=Update.update,
+    ~destroy=Destroy.destroy,
   );
