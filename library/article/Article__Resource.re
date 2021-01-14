@@ -316,7 +316,7 @@ module Update = {
                         let new_slug =
                           payload.title
                           |> Option.map(~f=Util.slugify)
-                          |> Option.value(~default=article.title);
+                          |> Option.value(~default=article.slug);
 
                         let new_description =
                           payload.description
