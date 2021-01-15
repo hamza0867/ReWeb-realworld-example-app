@@ -499,6 +499,33 @@ module MakeRepository = (Database: Database.Connection) => {
     )
     |> or_error;
   };
+
+  let unfavorite_one_by_slug = (~slug, ~user_id) => {
+    let get_article_id_by_slug = [%rapper
+      get_one(
+        {sql|
+      SELECT @int{id} FROM articles WHERE slug = %string{slug}
+      |sql},
+      )
+    ];
+    let unfavorite_query = [%rapper
+      execute(
+        {sql|
+        UPDATE user_favorites_article SET active = 'f'
+        WHERE user_id = %int{user_id} AND article_id = %int{article_id}
+       |sql},
+      )
+    ];
+
+    let (>>=) = Lwt_result.(>>=);
+
+    Caqti_lwt.Pool.use(get_article_id_by_slug(~slug), pool)
+    >>= (
+      article_id =>
+        Caqti_lwt.Pool.use(unfavorite_query(~user_id, ~article_id), pool)
+    )
+    |> or_error;
+  };
 };
 
 module Repository = MakeRepository(Database.Connection);
